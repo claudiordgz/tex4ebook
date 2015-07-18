@@ -8,6 +8,7 @@ function prepare(params)
   local outputdir_name="OEBPS"
 	outputdir= basedir.."/"..outputdir_name
   input = params.input 
+  params.packages = params.packages .. "\\Configure{ext}{xhtml}"
 	return eb.prepare(params)
 end
 
@@ -38,12 +39,10 @@ local function makeTOC(document)
   return template
 end
 
-local function findTOC()
+local function cleanOPF()
   -- in epub3, there must be table of contents
 	-- if there is no toc in the document, we must add generic one
-  local inputfile = input .. ".html"
 	local opf =  "content.opf"
-	local toc_name = "generic_toc.html"
 	local f = io.open(opf,"r")
 	if not f then 
     print("Cannot open "..opf .. " for toc searching")
@@ -55,7 +54,12 @@ local function findTOC()
     print "TOC nav found"
   else
     print "no TOC, using generic one"
+    local pattern = input.."(%..?html)"
+    local ext = content:match(pattern)
+    local inputfile = input .. ext
+    print("Main file name", inputfile)
 		-- write toc file
+    local toc_name = "generic_toc" ..ext
 		local f = io.open(outputdir .. "/" .. toc_name, "w")
 		f:write(makeTOC(inputfile))
 		f:close()
@@ -64,10 +68,12 @@ local function findTOC()
 		  " properties=\"nav\" media-type=\"application/xhtml+xml\" href=\""..
 			toc_name .."\" />\n")
     content = content:gsub("<spine([^>]*)>", "<spine%1>\n<itemref idref=\"htmltoc\" linear=\"no\"/>\n")
-		f = io.open(outputdir .. "/" ..opf,"w")
-		f:write(content)
-		f:close()
+    -- remove empty guide element
   end
+  content = content:gsub("<guide>%s*</guide>","")
+  f = io.open(outputdir .. "/" ..opf,"w")
+  f:write(content)
+  f:close()
   --makeTOC(inputfile)
 end
 
@@ -76,7 +82,7 @@ end
 function writeContainer()			
 	--local ret =  eb.writeContainer()
 	eb.make_opf()
-	findTOC()
+	cleanOPF()
 	local ret = eb.pack_container()
 	return ret
 end
